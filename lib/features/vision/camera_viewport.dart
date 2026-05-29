@@ -120,20 +120,19 @@ class _CameraViewportState extends State<CameraViewport> {
             child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
           ),
 
-        // 2. Bounding Box Overlay
-        if (_controller.detections.isNotEmpty)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cameraSize = Size(constraints.maxWidth, constraints.maxHeight);
-              return CustomPaint(
-                size: cameraSize,
-                painter: BoundingBoxPainter(
-                  detections: _controller.detections,
-                  screenSize: cameraSize,
-                ),
-              );
-            },
-          ),
+        // 2. Bounding Box Overlay (Selalu tampil sebagai panduan statis)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cameraSize = Size(constraints.maxWidth, constraints.maxHeight);
+            return CustomPaint(
+              size: cameraSize,
+              painter: BoundingBoxPainter(
+                detections: _controller.detections,
+                screenSize: cameraSize,
+              ),
+            );
+          },
+        ),
 
         // Loading overlay saat switching model
         if (_controller.isSwitchingModel)

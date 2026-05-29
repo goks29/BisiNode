@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/ml_vision_service.dart';
 
-/// CustomPainter untuk rendering kotak overlay deteksi (SRP)
+/// CustomPainter untuk rendering kotak overlay panduan statis (Static Guide)
 class BoundingBoxPainter extends CustomPainter {
   final List<BoundingBox> detections;
   final Size screenSize;
@@ -10,44 +10,86 @@ class BoundingBoxPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var detection in detections) {
-      // Deteksi apakah koordinat model bersifat normalized (0..1) atau absolute (0..inputSize)
-      // Jika <= 1.0, berarti normalized, kalikan langsung dengan screenSize.
-      // Jika > 1.0, berarti absolute, skalakan dari 640 ke screenSize.
-      final isNormalized = detection.rect.right <= 1.0 && detection.rect.bottom <= 1.0;
+    // Tentukan kotak panduan statis di tengah agak ke bawah
+    final boxWidth = screenSize.width * 0.65;
+    final boxHeight = boxWidth * 1.2; 
+    final left = (screenSize.width - boxWidth) / 2;
+    final top = (screenSize.height - boxHeight) * 0.65; // Posisikan di bawah tengah
+    final staticRect = Rect.fromLTWH(left, top, boxWidth, boxHeight);
 
-      final scaleX = isNormalized ? screenSize.width : (screenSize.width / 640.0);
-      final scaleY = isNormalized ? screenSize.height : (screenSize.height / 640.0);
-
-      final scaledRect = Rect.fromLTRB(
-        detection.rect.left * scaleX,
-        detection.rect.top * scaleY,
-        detection.rect.right * scaleX,
-        detection.rect.bottom * scaleY,
-      );
-
-      // Electric Cyan default, Hijau jika terverifikasi > 2 detik
-      final paint = Paint()
-        ..color = detection.isVerified
-            ? Colors.greenAccent
-            : const Color(0xFF06B6D4)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0;
-
-      canvas.drawRect(scaledRect, paint);
-      _drawLabel(canvas, scaledRect, detection);
+    // Ambil deteksi teratas (jika ada)
+    BoundingBox? topDetection;
+    bool isVerified = false;
+    if (detections.isNotEmpty) {
+      topDetection = detections.first;
+      isVerified = topDetection.isVerified;
     }
+
+    // Gambar kotak panduan statis
+    // Warnanya hijau jika ada deteksi terverifikasi, jika ada deteksi tapi belum terverifikasi warna Cyan,
+    // Jika tidak ada deteksi sama sekali, warna putih transparan
+    Color boxColor;
+    if (isVerified) {
+      boxColor = Colors.greenAccent;
+    } else if (topDetection != null) {
+      boxColor = const Color(0xFF06B6D4);
+    } else {
+      boxColor = Colors.white.withOpacity(0.4);
+    }
+
+    final paint = Paint()
+      ..color = boxColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
+    // Gambar radius agar kotak tidak terlalu kaku
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(staticRect, const Radius.circular(16)), 
+      paint
+    );
+
+    // Gambar label jika ada deteksi
+    if (topDetection != null) {
+      _drawLabel(canvas, staticRect, topDetection);
+    } else {
+      _drawInstructionLabel(canvas, staticRect);
+    }
+  }
+
+  void _drawInstructionLabel(Canvas canvas, Rect box) {
+    const textSpan = TextSpan(
+      text: " Posisikan tangan di sini ",
+      style: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: Colors.white70,
+        backgroundColor: Colors.black54,
+      ),
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final offset = Offset(
+      box.left + (box.width - textPainter.width) / 2, 
+      box.top - 24
+    );
+
+    textPainter.paint(canvas, offset);
   }
 
   void _drawLabel(Canvas canvas, Rect box, BoundingBox detection) {
     final percent = (detection.confidence * 100).toStringAsFixed(0);
     final textSpan = TextSpan(
-      text: "${detection.label} ($percent%)",
-      style: const TextStyle(
-        fontFamily: 'JetBrains Mono',
-        fontSize: 12,
+      text: " ${detection.label} ($percent%) ",
+      style: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 16,
         fontWeight: FontWeight.bold,
-        color: Colors.white,
+        color: detection.isVerified ? Colors.greenAccent : const Color(0xFF06B6D4),
         backgroundColor: Colors.black87,
       ),
     );
@@ -57,9 +99,12 @@ class BoundingBoxPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
 
-    // Smart positioning: di dalam box jika posisi atas melebihi layar
-    var offset = Offset(box.left, box.top - 20);
-    if (offset.dy < 0) offset = Offset(box.left, box.top + 5);
+    // Posisikan label di tengah atas kotak
+    var offset = Offset(
+      box.left + (box.width - textPainter.width) / 2, 
+      box.top - 32
+    );
+    if (offset.dy < 0) offset = Offset(box.left + (box.width - textPainter.width) / 2, box.top + 8);
 
     textPainter.paint(canvas, offset);
   }
