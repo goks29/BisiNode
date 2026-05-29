@@ -460,8 +460,8 @@ class MlVisionService {
         final double avgBrightness = sumY / (targetH * targetW);
         if (avgBrightness < 85.0) {
           ImageProcessingUtils.equalizeContrast(rgbMatrix, targetW, targetH);
-        } 
-
+        }
+      
         for (int y = 0; y < targetH; y++) {
           for (int x = 0; x < targetW; x ++) {
             final r = rgbMatrix[y][x][0];
