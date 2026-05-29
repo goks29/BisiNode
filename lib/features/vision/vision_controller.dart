@@ -18,9 +18,12 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   // Sentence Builder state
   String _lastDetectedLabel = "";
-  int _consecutiveFrames = 0;
   DateTime? _firstDetectionTime;
   static const _verificationDuration = Duration(seconds: 2);
+
+  // Sliding Window (Anti-Flicker)
+  final List<String> _predictionHistory = [];
+  static const int _historyLimit = 5;
 
   bool get isInitialized => _cameraService.isInitialized;
   CameraController? get cameraController => _cameraService.controller;
@@ -77,7 +80,8 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
     cameraController!.startImageStream((CameraImage image) async {
       final now = DateTime.now().millisecondsSinceEpoch;
-      if (isSwitchingModel || _mlService.isProcessing || now - _mlService.lastInferenceTime < 250) return;
+      // Throttling: 600ms (~1.6 FPS) untuk stabilitas
+      if (isSwitchingModel || _mlService.isProcessing || now - _mlService.lastInferenceTime < 600) return;
 
       _mlService.isProcessing = true;
       try {
@@ -100,24 +104,31 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
       newDetections.sort((a, b) => b.confidence.compareTo(a.confidence));
       final top = newDetections.first;
 
-      if (top.label.trim().isNotEmpty && top.label == _lastDetectedLabel) {
+      // Update Sliding Window
+      _predictionHistory.add(top.label);
+      if (_predictionHistory.length > _historyLimit) {
+        _predictionHistory.removeAt(0);
+      }
+
+      // Hitung Majority Voting
+      final String stabilizedLabel = _getMajorityLabel();
+
+      if (stabilizedLabel.trim().isNotEmpty && stabilizedLabel == _lastDetectedLabel) {
         _firstDetectionTime ??= DateTime.now();
-        _consecutiveFrames++;
 
         final elapsed = DateTime.now().difference(_firstDetectionTime!);
         if (elapsed >= _verificationDuration) {
           // Tandai sebagai terverifikasi
           newDetections = newDetections.map((d) =>
-            d.label == top.label ? d.copyWith(isVerified: true) : d
+            d.label == stabilizedLabel ? d.copyWith(isVerified: true) : d
           ).toList();
 
-          _onLetterVerified(top.label);
+          _onLetterVerified(stabilizedLabel);
           _resetSentenceState();
         }
       } else {
-        _lastDetectedLabel = top.label;
+        _lastDetectedLabel = stabilizedLabel;
         _firstDetectionTime = DateTime.now();
-        _consecutiveFrames = 1;
       }
     } else if (isCameraStream) {
       _resetSentenceState();
@@ -125,6 +136,16 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
     detections = newDetections;
     notifyListeners();
+  }
+
+  String _getMajorityLabel() {
+    if (_predictionHistory.isEmpty) return "";
+    final Map<String, int> counts = {};
+    for (var label in _predictionHistory) {
+      counts[label] = (counts[label] ?? 0) + 1;
+    }
+    // Cari label dengan kemunculan terbanyak
+    return counts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
   }
 
   /// Feedback saat huruf/angka terverifikasi
@@ -149,8 +170,8 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _resetSentenceState() {
     _lastDetectedLabel = "";
-    _consecutiveFrames = 0;
     _firstDetectionTime = null;
+    _predictionHistory.clear();
   }
 
   // --- Text Controls ---
