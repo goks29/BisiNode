@@ -1,11 +1,7 @@
 import 'dart:math';
 
-/// Kumpulan utilitas Pengolahan Citra Digital (PCD) secara manual
-/// Menerapkan prinsip Clean Code dan performa tinggi dalam Dart
 class ImageProcessingUtils {
   
-  /// Mengubah ukuran citra RGB menggunakan Bilinear Interpolation
-  /// [src] adalah citra sumber berdimensi [H][W][C]
   static List<List<List<double>>> bilinearResize(
     List<List<List<double>>> src,
     int srcW,

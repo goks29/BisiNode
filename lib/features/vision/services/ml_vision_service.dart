@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:logbook_app_001/features/vision/utils/image_processing_utils.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 enum ModelType { alphabet, numbers }
@@ -43,7 +44,7 @@ class MlVisionService {
   ModelType get currentModelType => _currentModelType;
   List<String> get labels => _labels;
 
-  /// Threshold dari .env (Single Source of Truth)
+  /// Threshold dari .env 
   double get confidenceThreshold =>
       double.tryParse(dotenv.env['CONFIDENCE_THRESHOLD'] ?? '0.65') ?? 0.65;
 
@@ -96,7 +97,7 @@ class MlVisionService {
     _currentModelType = type;
   }
 
-  /// Tutup interpreter secara aman (cegah native crash)
+  /// Tutup interpreter secara aman 
   Future<void> _safeCloseInterpreters() async {
     // Isolate harus ditutup sebelum Interpreter dasar
     if (_isolateInterpreter != null) {
@@ -229,15 +230,6 @@ class MlVisionService {
     return _parseOutput(outTensors, outputBuffers);
   }
 
-  /// Parse output tensor SSD MobileNet v2 (TFLite_Detection_PostProcess)
-  ///
-  /// Model output order (fixed by TFLite post-processing):
-  ///   T[0] = detection_boxes  [1, N, 4]  atau [1, N] (boxes, normalized 0-1)
-  ///   T[1] = detection_classes [1, N]
-  ///   T[2] = detection_scores  [1, N]
-  ///   T[3] = num_detections    [1]
-  ///
-  /// NAMUN shape bisa bervariasi, jadi kita identifikasi berdasarkan dimensi.
   List<BoundingBox> _parseOutput(List<Tensor> outTensors, Map<int, Object> buffers) {
     final List<BoundingBox> detections = [];
     final threshold = confidenceThreshold;
@@ -392,6 +384,11 @@ class MlVisionService {
           ),
         );
 
+        final rgbMatrix = List.generate(
+          targetH,
+          (_) => List.generate(targetW, (_) => List.filled(3, 0.0)),
+        );
+
         // Center-crop untuk aspect ratio 1:1
         final rotate90 = srcW > srcH;
         final int cropSize = srcW < srcH ? srcW : srcH;
@@ -422,6 +419,8 @@ class MlVisionService {
           }
         }
 
+        double sumY = 0.0;
+
         for (int y = 0; y < targetH; y++) {
           for (int x = 0; x < targetW; x++) {
             final int srcX;
@@ -438,6 +437,8 @@ class MlVisionService {
             final yIndex = srcY * yRowStride + srcX;
             final yVal = yPlane[yIndex].toDouble();
 
+            sumY += yVal;
+
             double r, g, b;
             if (hasUV) {
               final uvIndex = (srcY ~/ 2) * uvRowStride + (srcX ~/ 2) * uvPixelStride;
@@ -450,12 +451,28 @@ class MlVisionService {
               r = g = b = yVal;
             }
 
+            rgbMatrix[y][x][0] = r;
+            rgbMatrix[y][x][1] = g;
+            rgbMatrix[y][x][2] = b;
+          }
+        }
+        
+        final double avgBrightness = sumY / (targetH * targetW);
+        if (avgBrightness < 85.0) {
+          ImageProcessingUtils.equalizeContrast(rgbMatrix, targetW, targetH);
+        } 
+
+        for (int y = 0; y < targetH; y++) {
+          for (int x = 0; x < targetW; x ++) {
+            final r = rgbMatrix[y][x][0];
+            final g = rgbMatrix[y][x][1];
+            final b = rgbMatrix[y][x][2];
+
             if (isQuantized) {
               tensor[0][y][x][0] = r.toInt();
               tensor[0][y][x][1] = g.toInt();
               tensor[0][y][x][2] = b.toInt();
             } else {
-              // SSD MobileNet v2 float model: normalisasi -1.0 ke 1.0
               tensor[0][y][x][0] = (r - 127.5) / 127.5;
               tensor[0][y][x][1] = (g - 127.5) / 127.5;
               tensor[0][y][x][2] = (b - 127.5) / 127.5;

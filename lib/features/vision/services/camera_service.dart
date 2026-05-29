@@ -25,7 +25,7 @@ class CameraService extends ChangeNotifier {
         return;
       }
 
-      // Filter: ambil hanya kamera pertama per arah (skip ultra-wide/macro)
+      // Filter: ambil hanya kamera pertama per arah 
       _filteredCameras = _filterMainCameras(_allCameras);
 
       // Prioritaskan kamera depan untuk BISINDO
@@ -41,7 +41,7 @@ class CameraService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ambil satu kamera utama per arah lensa (hindari ultra-wide/macro)
+  /// Ambil satu kamera utama per arah lensa 
   List<CameraDescription> _filterMainCameras(List<CameraDescription> cameras) {
     final Map<CameraLensDirection, CameraDescription> mainCameras = {};
     for (final cam in cameras) {
@@ -54,7 +54,7 @@ class CameraService extends ChangeNotifier {
   Future<void> _initController(CameraDescription camera) async {
     controller = CameraController(
       camera,
-      ResolutionPreset.medium,
+      ResolutionPreset.low,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.yuv420,
     );

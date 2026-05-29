@@ -20,7 +20,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   String _lastDetectedLabel = "";
   int _consecutiveFrames = 0;
   DateTime? _firstDetectionTime;
-  static const _verificationDuration = Duration(seconds: 2);
+  static const _verificationDuration = Duration(milliseconds : 1500);
 
   bool get isInitialized => _cameraService.isInitialized;
   CameraController? get cameraController => _cameraService.controller;
@@ -44,7 +44,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// Dynamic Model Switching (DEVELOPMENT_TEMPLATE Section 4B)
+  /// Dynamic Model Switching 
   Future<void> switchModel(ModelType type) async {
     if (type == currentModelType || isSwitchingModel) return;
     isSwitchingModel = true;
@@ -135,7 +135,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     _saveToHive(label);
   }
 
-  /// Persistensi ke Hive (DEVELOPMENT_TEMPLATE Section 3C)
+  /// Persistensi ke Hive 
   Future<void> _saveToHive(String letter) async {
     if (!Hive.isBoxOpen('translation_logs')) return;
 
@@ -172,7 +172,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// Putar kamera depan ↔ belakang
+  /// Putar kamera depan ke belakang
   Future<void> flipCamera() async {
     try {
       if (cameraController != null && cameraController!.value.isStreamingImages) {
