@@ -1,6 +1,5 @@
 class ImageProcessingUtils {
   /// Menyeimbangkan kontras citra RGB dengan Global Histogram Equalization pada kanal kecerahan Y (YCbCr)
-  /// Sangat berguna untuk kondisi kurang cahaya (Low Light).
   static void equalizeContrast(List<List<List<double>>> img, int w, int h) {
     final List<int> histogram = List.filled(256, 0);
     final List<List<double>> yChannel = List.generate(h, (_) => List.filled(w, 0.0));

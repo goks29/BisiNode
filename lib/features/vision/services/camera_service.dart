@@ -54,7 +54,7 @@ class CameraService extends ChangeNotifier {
   Future<void> _initController(CameraDescription camera) async {
     controller = CameraController(
       camera,
-      ResolutionPreset.low,
+      ResolutionPreset.medium,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.yuv420,
     );
