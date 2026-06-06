@@ -21,6 +21,11 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   DateTime? _firstDetectionTime;
   static const _verificationDuration = Duration(milliseconds : 1500);
 
+  // Cooldown State
+  DateTime? _cooldownUntil;
+  static const _cooldownDuration = Duration(milliseconds: 2000); // 2 detik timeout
+  bool get isCooldown => _cooldownUntil != null && DateTime.now().isBefore(_cooldownUntil!);
+
   // Sliding Window (Anti-Flicker)
   final List<String> _predictionHistory = [];
   static const int _historyLimit = 5;
@@ -62,6 +67,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
       await Future.delayed(const Duration(milliseconds: 200));
 
       await _mlService.switchModel(type);
+      _cooldownUntil = null;
       _resetSentenceState();
 
       // Aktifkan kembali stream
@@ -100,6 +106,13 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     // Stabilisasi: jangan langsung hapus deteksi lama (anti-flicker)
     if (newDetections.isEmpty && detections.isNotEmpty) return;
 
+    if (isCooldown) {
+      _resetSentenceState();
+      detections = newDetections;
+      notifyListeners();
+      return;
+    }
+
     if (isCameraStream && newDetections.isNotEmpty) {
       newDetections.sort((a, b) => b.confidence.compareTo(a.confidence));
       final top = newDetections.first;
@@ -125,6 +138,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
           _onLetterVerified(stabilizedLabel);
           _resetSentenceState();
+          _cooldownUntil = DateTime.now().add(_cooldownDuration);
         }
       } else {
         _lastDetectedLabel = stabilizedLabel;
@@ -189,6 +203,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   void clearText() {
     assembledWord = "";
+    _cooldownUntil = null;
     _resetSentenceState();
     notifyListeners();
   }
@@ -201,6 +216,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
       }
       await Future.delayed(const Duration(milliseconds: 150));
       await _cameraService.flipCamera();
+      _cooldownUntil = null;
       _resetSentenceState();
       detections = [];
       await Future.delayed(const Duration(milliseconds: 200));
