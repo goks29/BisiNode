@@ -10,14 +10,13 @@ class BoundingBoxPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Tentukan kotak panduan statis di tengah agak ke bawah
     final boxWidth = screenSize.width * 0.65;
     final boxHeight = boxWidth * 1.2; 
     final left = (screenSize.width - boxWidth) / 2;
-    final top = (screenSize.height - boxHeight) * 0.65; // Posisikan di bawah tengah
+    final top = (screenSize.height - boxHeight) * 0.65;
     final staticRect = Rect.fromLTWH(left, top, boxWidth, boxHeight);
 
-    // Ambil deteksi teratas (jika ada)
+    // Ambil deteksi teratas
     BoundingBox? topDetection;
     bool isVerified = false;
     if (detections.isNotEmpty) {
@@ -25,9 +24,6 @@ class BoundingBoxPainter extends CustomPainter {
       isVerified = topDetection.isVerified;
     }
 
-    // Gambar kotak panduan statis
-    // Warnanya hijau jika ada deteksi terverifikasi, jika ada deteksi tapi belum terverifikasi warna Cyan,
-    // Jika tidak ada deteksi sama sekali, warna putih transparan
     Color boxColor;
     if (isVerified) {
       boxColor = Colors.greenAccent;
@@ -42,7 +38,6 @@ class BoundingBoxPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
-    // Gambar radius agar kotak tidak terlalu kaku
     canvas.drawRRect(
       RRect.fromRectAndRadius(staticRect, const Radius.circular(16)), 
       paint

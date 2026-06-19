@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:hive/hive.dart';
 import 'services/camera_service.dart';
 import 'services/ml_vision_service.dart';
@@ -11,6 +12,7 @@ import 'models/translation_log.dart';
 class VisionController extends ChangeNotifier with WidgetsBindingObserver {
   final CameraService _cameraService = CameraService();
   final MlVisionService _mlService = MlVisionService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   List<BoundingBox> detections = [];
   String assembledWord = "";
@@ -164,8 +166,8 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Feedback saat huruf/angka terverifikasi
   void _onLetterVerified(String label) {
-    HapticFeedback.lightImpact();
-    SystemSound.play(SystemSoundType.click);
+    HapticFeedback.vibrate();
+    _audioPlayer.play(AssetSource('sounds/beep.wav'));
     assembledWord += label;
     _saveToHive(label);
   }
@@ -246,6 +248,7 @@ class VisionController extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _cameraService.dispose();
     _mlService.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 }
